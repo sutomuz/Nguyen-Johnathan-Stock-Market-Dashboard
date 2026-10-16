@@ -46,6 +46,53 @@ def search_securities(query, limit=20):
     return pd.DataFrame(rows, columns=columns)
 
 
+def get_security_details(symbol):
+    """Return metadata and the available historical price range."""
+    symbol = symbol.strip().upper()
+
+    if not symbol:
+        raise ValueError("Enter a security symbol.")
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    s.symbol,
+                    s.security_name,
+                    s.asset_type,
+                    s.listing_exchange,
+                    s.has_price_file,
+                    (
+                        SELECT MIN(p.trade_date)
+                        FROM daily_prices AS p
+                        WHERE p.symbol = s.symbol
+                    ) AS first_date,
+                    (
+                        SELECT MAX(p.trade_date)
+                        FROM daily_prices AS p
+                        WHERE p.symbol = s.symbol
+                    ) AS last_date,
+                    (
+                        SELECT COUNT(*)
+                        FROM daily_prices AS p
+                        WHERE p.symbol = s.symbol
+                    ) AS price_records
+                FROM securities AS s
+                WHERE s.symbol = %s;
+                """,
+                (symbol,),
+            )
+
+            row = cursor.fetchone()
+
+            if row is None:
+                return None
+
+            columns = [column.name for column in cursor.description]
+            return dict(zip(columns, row))
+
+
 if __name__ == "__main__":
     for query in ["AAPL", "Microsoft"]:
         print(f"\nSearch: {query}")
@@ -55,3 +102,12 @@ if __name__ == "__main__":
             print("No matching securities found.")
         else:
             print(results.to_string(index=False))
+
+    print("\nSecurity details: AAPL")
+    details = get_security_details("AAPL")
+
+    if details is None:
+        print("Security not found.")
+    else:
+        for key, value in details.items():
+            print(f"{key}: {value}")
