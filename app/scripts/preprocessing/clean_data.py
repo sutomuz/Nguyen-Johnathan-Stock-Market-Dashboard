@@ -3,10 +3,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 RAW = ROOT / "data" / "raw"
 PROCESSED = ROOT / "data" / "processed"
-REPORT = ROOT / "docs" / "cleaning_report.csv"
+REPORT = ROOT / "docs" / "reports" / "cleaning_report.csv"
 
 PRICES = ["Open", "High", "Low", "Close", "Adj Close"]
 NUMERIC = PRICES + ["Volume"]

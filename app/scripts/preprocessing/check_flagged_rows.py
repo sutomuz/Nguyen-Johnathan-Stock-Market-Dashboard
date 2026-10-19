@@ -1,8 +1,8 @@
 from pathlib import Path
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[2]
-audit = pd.read_csv(ROOT / "docs" / "data_audit.csv")
+ROOT = Path(__file__).resolve().parents[3]
+audit = pd.read_csv(ROOT / "docs" / "reports" / "data_audit.csv")
 
 checks = [
     "missing_cells",

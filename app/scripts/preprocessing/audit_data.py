@@ -1,9 +1,9 @@
 from pathlib import Path
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 RAW = ROOT / "data" / "raw"
-OUTPUT = ROOT / "docs" / "data_audit.csv"
+OUTPUT = ROOT / "docs" / "reports" / "data_audit.csv"
 
 EXPECTED = ["Date", "Open", "High", "Low", "Close", "Adj Close", "Volume"]
 PRICES = ["Open", "High", "Low", "Close", "Adj Close"]
