@@ -1,18 +1,18 @@
-# Python environment and cache
+# Python environment and generated files
 .venv/
 __pycache__/
 *.py[cod]
 
-# Secrets and local settings
+# Local passwords and settings
 .env
 .env.*
 !.env.example
 
-# Local datasets
-data/raw/*
-data/processed/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
+# Datasets — kept locally, excluded from Git
+/data/raw/
+/data/processed/
+/app/data/raw/
+/app/data/processed/
 
-# Notebook checkpoints
+# Notebook backups
 .ipynb_checkpoints/
