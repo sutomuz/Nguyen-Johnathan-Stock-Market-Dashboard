@@ -3,15 +3,18 @@ import pandas as pd
 from backend.database import get_connection
 
 
-def search_securities(query, limit=20):
-    """Search symbols and names, prioritizing exact ticker matches."""
+def search_securities(query="", limit=20, asset_type=None, offset=0):
+    """Search and filter securities with available price files."""
     query = query.strip()
-
-    if not query:
-        raise ValueError("Enter a ticker or company name.")
 
     if type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError("Limit must be between 1 and 100.")
+
+    if type(offset) is not int or offset < 0:
+        raise ValueError("Offset must be a nonnegative integer.")
+
+    if asset_type not in (None, "stock", "etf"):
+        raise ValueError("Asset type must be 'stock', 'etf', or None.")
 
     with get_connection() as connection:
         with connection.cursor() as cursor:
@@ -25,22 +28,44 @@ def search_securities(query, limit=20):
                 FROM securities
                 WHERE has_price_file
                   AND (
-                      STRPOS(LOWER(symbol), LOWER(%s)) > 0
+                      %s = ''
+                      OR STRPOS(LOWER(symbol), LOWER(%s)) > 0
                       OR STRPOS(LOWER(security_name), LOWER(%s)) > 0
                   )
+                  AND (%s::text IS NULL OR asset_type = %s)
                 ORDER BY
                     CASE
-                        WHEN UPPER(symbol) = UPPER(%s) THEN 0
-                        WHEN STRPOS(LOWER(symbol), LOWER(%s)) = 1 THEN 1
+                        WHEN %s <> '' AND UPPER(symbol) = UPPER(%s) THEN 0
+                        WHEN %s <> ''
+                             AND STRPOS(LOWER(symbol), LOWER(%s)) = 1 THEN 1
                         ELSE 2
                     END,
                     symbol
-                LIMIT %s;
+                LIMIT %s OFFSET %s;
                 """,
-                (query, query, query, query, limit),
+                (
+                    query,
+                    query,
+                    query,
+                    asset_type,
+                    asset_type,
+                    query,
+                    query,
+                    query,
+                    query,
+                    limit,
+                    offset,
+                ),
             )
 
-            columns = [column.name for column in cursor.description]
+            description = cursor.description
+
+            if description is None:
+                raise RuntimeError(
+                    "The search query did not return column descriptions."
+                )
+
+            columns = [column.name for column in description]
             rows = cursor.fetchall()
 
     return pd.DataFrame(rows, columns=columns)
@@ -89,7 +114,14 @@ def get_security_details(symbol):
             if row is None:
                 return None
 
-            columns = [column.name for column in cursor.description]
+            description = cursor.description
+
+            if description is None:
+                raise RuntimeError(
+                    "The details query did not return column descriptions."
+                )
+
+            columns = [column.name for column in description]
             return dict(zip(columns, row))
 
 

@@ -127,7 +127,14 @@ def rank_volatility(
                 ),
             )
 
-            columns = [column.name for column in cursor.description]
+            description = cursor.description
+
+            if description is None:
+                raise RuntimeError(
+                    "The volatility query did not return column descriptions."
+                )
+
+            columns = [column.name for column in description]
             rows = cursor.fetchall()
 
     return pd.DataFrame(rows, columns=columns)

@@ -13,7 +13,7 @@ if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
 from backend.prices import get_prices
-from backend.securities import search_securities
+from backend.securities import get_security_details, search_securities
 
 
 st.set_page_config(
@@ -25,11 +25,19 @@ st.set_page_config(
 st.title("Stock Market Dashboard")
 st.caption("Explore historical stock and ETF data.")
 
-# Remember the selected security when the page updates.
 if "selected_security" not in st.session_state:
     st.session_state.selected_security = None
 
+if "security_page" not in st.session_state:
+    st.session_state.security_page = 0
+
+if "last_security_filters" not in st.session_state:
+    st.session_state.last_security_filters = None
+
+PAGE_SIZE = 20
+
 left, center, right = st.columns([1, 3, 1.5], gap="large")
+
 
 with left:
     st.subheader("Find securities")
@@ -40,18 +48,46 @@ with left:
     )
 
     with st.expander("Filters"):
-        st.caption("Filters will be connected in a later step.")
+        asset_choice = st.selectbox(
+            "Asset type",
+            ["All", "Stocks", "ETFs"],
+        )
 
-    if search.strip():
-        try:
-            results = search_securities(search, limit=20)
+    asset_types = {
+        "All": None,
+        "Stocks": "stock",
+        "ETFs": "etf",
+    }
 
-            if results.empty:
-                st.info("No matching securities found.")
-            else:
-                st.caption("Showing up to 20 results")
+    # Return to the first page when the search or filter changes.
+    current_filters = (search.strip(), asset_choice)
 
-                for _, security in results.iterrows():
+    if current_filters != st.session_state.last_security_filters:
+        st.session_state.security_page = 0
+        st.session_state.last_security_filters = current_filters
+
+    try:
+        # Request one extra result to tell whether another page exists.
+        results = search_securities(
+            query=search,
+            limit=PAGE_SIZE + 1,
+            asset_type=asset_types[asset_choice],
+            offset=st.session_state.security_page * PAGE_SIZE,
+        )
+
+        has_next_page = len(results) > PAGE_SIZE
+        visible_results = results.head(PAGE_SIZE)
+
+        if visible_results.empty:
+            st.info("No matching securities found.")
+        else:
+            st.caption(
+                f"Page {st.session_state.security_page + 1} "
+                f"· Up to {PAGE_SIZE} results per page"
+            )
+
+            with st.container(height=450):
+                for _, security in visible_results.iterrows():
                     symbol = security["symbol"]
                     name = security["security_name"]
 
@@ -67,20 +103,40 @@ with left:
                             "exchange": security["listing_exchange"],
                         }
 
-        except Exception:
-            logging.exception("Security search failed")
-            st.error(
-                "Could not search the database. "
-                "Check the terminal for details."
-            )
-    else:
-        st.caption("Search for a security to see matching results.")
+            previous_col, next_col = st.columns(2)
+
+            with previous_col:
+                if st.button(
+                    "Previous",
+                    disabled=st.session_state.security_page == 0,
+                    use_container_width=True,
+                ):
+                    st.session_state.security_page -= 1
+                    st.rerun()
+
+            with next_col:
+                if st.button(
+                    "Next",
+                    disabled=not has_next_page,
+                    use_container_width=True,
+                ):
+                    st.session_state.security_page += 1
+                    st.rerun()
+
+    except Exception:
+        logging.exception("Security search failed")
+        st.error(
+            "Could not search the database. "
+            "Check the terminal for details."
+        )
+
 
 with center:
     selected = st.session_state.selected_security
 
     if selected:
         st.subheader(f"{selected['symbol']} — {selected['name']}")
+
         st.caption(
             f"Type: {selected['asset_type']} | "
             f"Exchange code: {selected['exchange']}"
@@ -115,7 +171,9 @@ with center:
                 if prices.empty:
                     st.info("No price records found for this date range.")
                 else:
-                    chart_data = pd.DataFrame(prices[["trade_date", "adj_close"]]).copy()
+                    chart_data = pd.DataFrame(
+                        prices[["trade_date", "adj_close"]]
+                    ).copy()
 
                     chart_data["trade_date"] = pd.to_datetime(
                         chart_data["trade_date"]
@@ -127,12 +185,22 @@ with center:
                     )
 
                     # Mark invalid adjusted prices as missing.
-                    invalid = ~prices["valid_adj_close"].fillna(False).astype(bool)
+                    invalid = (
+                        ~prices["valid_adj_close"]
+                        .fillna(False)
+                        .astype(bool)
+                    )
+
                     chart_data.loc[invalid, "adj_close"] = float("nan")
 
                     if not chart_data.dropna(subset=["adj_close"]).empty:
                         chart_data = chart_data.set_index("trade_date")
-                        st.line_chart(chart_data, y="adj_close")
+
+                        st.line_chart(
+                            chart_data,
+                            y="adj_close",
+                        )
+
                         st.caption(
                             "Adjusted closing price; invalid values "
                             "are shown as missing."
@@ -149,12 +217,53 @@ with center:
                     "Could not load the price chart. "
                     "Check the terminal for details."
                 )
+
     else:
         st.subheader("Price chart")
         st.info("Select a security to view its historical price chart.")
 
     st.subheader("Security details")
-    st.caption("Performance and other statistics will appear here.")
+
+    if selected:
+        try:
+            details = get_security_details(selected["symbol"])
+
+            if details is None:
+                st.info("No details found for this security.")
+            else:
+                first = details["first_date"]
+                last = details["last_date"]
+                records = details["price_records"]
+
+                detail_left, detail_mid, detail_right = st.columns(3)
+
+                with detail_left:
+                    st.metric(
+                        "First available date",
+                        str(first) if first else "N/A",
+                    )
+
+                with detail_mid:
+                    st.metric(
+                        "Last available date",
+                        str(last) if last else "N/A",
+                    )
+
+                with detail_right:
+                    st.metric(
+                        "Price records",
+                        f"{records:,}",
+                    )
+
+        except Exception:
+            logging.exception("Security details failed")
+            st.error(
+                "Could not load security details. "
+                "Check the terminal for details."
+            )
+    else:
+        st.caption("Select a security to see its details.")
+
 
 with right:
     st.subheader("Market assistant")
