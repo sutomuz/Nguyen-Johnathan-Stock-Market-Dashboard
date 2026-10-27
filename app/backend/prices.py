@@ -47,7 +47,14 @@ def get_prices(symbol, start_date, end_date):
                 (symbol, start, end),
             )
 
-            columns = [column.name for column in cursor.description]
+            description = cursor.description
+
+            if description is None:
+                raise RuntimeError(
+                    "The price query did not return column descriptions."
+                )
+
+            columns = [column.name for column in description]
             rows = cursor.fetchall()
 
     return pd.DataFrame(rows, columns=columns)
