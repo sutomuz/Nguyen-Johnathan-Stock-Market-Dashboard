@@ -12,6 +12,7 @@ for folder in (APP_DIR, DASHBOARD_DIR):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
 
+from assistant import show_assistant
 from chart import show_price_chart
 from details import show_security_details
 from security_list import show_security_list
@@ -26,7 +27,6 @@ st.set_page_config(
 st.title("Stock Market Dashboard")
 st.caption("Explore historical stock and ETF data.")
 
-# Remember selections and pagination when the page updates.
 if "selected_security" not in st.session_state:
     st.session_state.selected_security = None
 
@@ -48,12 +48,4 @@ with center:
     show_security_details(selected)
 
 with right:
-    st.subheader("Market assistant")
-    st.caption("Ask questions about the historical data.")
-
-    st.text_input(
-        "Your question",
-        placeholder="Which stocks had the highest returns?",
-    )
-
-    st.button("Ask")
+    show_assistant()
