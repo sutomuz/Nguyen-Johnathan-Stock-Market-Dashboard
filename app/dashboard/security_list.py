@@ -9,6 +9,7 @@ from filters import show_filters
 
 
 PAGE_SIZE = 20
+MAX_NAME_LENGTH = 28
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -50,8 +51,46 @@ def format_percent(value):
     return f"{value:.2%}"
 
 
+def shorten_name(name):
+    """Shorten long security names for the sidebar."""
+    name = str(name)
+
+    if len(name) <= MAX_NAME_LENGTH:
+        return name
+
+    return name[: MAX_NAME_LENGTH - 1].rstrip() + "…"
+
+
 def show_security_list():
     """Display filters, search, and paginated security results."""
+    st.markdown(
+        """
+        <style>
+            /* Compact, left-aligned security rows. */
+            .st-key-security_results [data-testid="stButton"] button {
+                justify-content: flex-start;
+                text-align: left;
+                min-height: 2.3rem;
+                padding: 0.35rem 0.6rem;
+                border-radius: 0;
+                font-size: 0.85rem;
+            }
+
+            .st-key-security_results [data-testid="stButton"] button p {
+                text-align: left;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .st-key-security_results [data-testid="stVerticalBlock"] {
+                gap: 0.25rem;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.subheader("Find securities")
 
     search = st.text_input(
@@ -92,6 +131,7 @@ def show_security_list():
                 f"Filter period: {filters['start_date']} "
                 f"through {filters['end_date']}"
             )
+
         else:
             results = search_securities(
                 query=search,
@@ -111,14 +151,16 @@ def show_security_list():
             f"· Up to {PAGE_SIZE} results per page"
         )
 
-        with st.container(height=350):
+        with st.container(height=350, key="security_results"):
             for _, security in visible_results.iterrows():
                 symbol = security["symbol"]
                 name = security["security_name"]
+                short_name = shorten_name(name)
 
                 if st.button(
-                    f"{symbol} — {name}",
+                    f"{symbol} — {short_name}",
                     key=f"security_{symbol}",
+                    help=str(name),
                     use_container_width=True,
                 ):
                     st.session_state.selected_security = {
