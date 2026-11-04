@@ -6,4 +6,4 @@ ipykernel
 psycopg[binary]
 python-dotenv
 
-streamlit==1.66.1
+streamlit==1.66.1plotly>=5.17

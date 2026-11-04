@@ -1,5 +1,6 @@
 import logging
 
+import pandas as pd
 import streamlit as st
 
 from backend.screener import screen_securities
@@ -39,6 +40,14 @@ def cached_screen(
         limit=PAGE_SIZE + 1,
         offset=offset,
     )
+
+
+def format_percent(value):
+    """Format a decimal as a percentage, including missing values."""
+    if pd.isna(value):
+        return "N/A"
+
+    return f"{value:.2%}"
 
 
 def show_security_list():
@@ -83,7 +92,6 @@ def show_security_list():
                 f"Filter period: {filters['start_date']} "
                 f"through {filters['end_date']}"
             )
-
         else:
             results = search_securities(
                 query=search,
@@ -103,7 +111,7 @@ def show_security_list():
             f"· Up to {PAGE_SIZE} results per page"
         )
 
-        with st.container(height=450):
+        with st.container(height=350):
             for _, security in visible_results.iterrows():
                 symbol = security["symbol"]
                 name = security["security_name"]
@@ -119,6 +127,25 @@ def show_security_list():
                         "asset_type": security["asset_type"],
                         "exchange": security["listing_exchange"],
                     }
+
+                if st.session_state.filters_active:
+                    total_return = format_percent(
+                        security["total_return"]
+                    )
+
+                    volatility = format_percent(
+                        security["annualized_volatility"]
+                    )
+
+                    st.caption(
+                        f"Return: {total_return} · "
+                        f"Annualized volatility: {volatility}"
+                    )
+
+                    needs_review = security["needs_review"]
+
+                    if str(needs_review).lower() == "true":
+                        st.caption("⚠️ Flagged move: review suggested")
 
         previous_col, next_col = st.columns(2)
 
