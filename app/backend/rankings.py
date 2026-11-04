@@ -127,7 +127,14 @@ def rank_returns(
                 ),
             )
 
-            columns = [column.name for column in cursor.description]
+            description = cursor.description
+
+            if description is None:
+                raise RuntimeError(
+                    "The returns query did not return column descriptions."
+                )
+
+            columns = [column.name for column in description]
             rows = cursor.fetchall()
 
     return pd.DataFrame(rows, columns=columns)
@@ -153,18 +160,21 @@ if __name__ == "__main__":
         if ranking.empty:
             print("No eligible securities found.")
         else:
-            display = ranking[
-                [
-                    "symbol",
-                    "start_date",
-                    "end_date",
-                    "total_return",
-                    "extreme_move_count",
-                    "needs_review",
+            display = pd.DataFrame(
+                ranking[
+                    [
+                        "symbol",
+                        "start_date",
+                        "end_date",
+                        "total_return",
+                        "extreme_move_count",
+                        "needs_review",
+                    ]
                 ]
-            ].copy()
+            ).copy()
 
-            display["total_return"] = display["total_return"].map(
+            returns = pd.Series(display["total_return"])
+            display["total_return"] = returns.map(
                 lambda value: f"{value:.2%}"
             )
 
